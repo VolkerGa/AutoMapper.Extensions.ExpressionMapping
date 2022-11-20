@@ -1,9 +1,11 @@
-﻿using System;
+﻿using Microsoft.EntityFrameworkCore.Query;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Threading;
 
 namespace AutoMapper.Extensions.ExpressionMapping.Impl
 {
@@ -72,6 +74,21 @@ namespace AutoMapper.Extensions.ExpressionMapping.Impl
         }
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+        public IAsyncEnumerator<TDestination> GetAsyncEnumerator(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var results = ((IAsyncQueryProvider)Provider).ExecuteAsync<IAsyncEnumerable<TDestination>>(Expression);
+                //EnumerationHandler(results);
+                return results.GetAsyncEnumerator();
+            }
+            catch (Exception x)
+            {
+                _exceptionHandler(x);
+                throw;
+            }
+        }
 
         public Type ElementType { get; }
         public Expression Expression { get; }

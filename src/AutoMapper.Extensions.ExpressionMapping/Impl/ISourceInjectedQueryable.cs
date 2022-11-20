@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace AutoMapper.Extensions.ExpressionMapping.Impl
 {
-    public interface ISourceInjectedQueryable<out T> : IQueryable<T>
+    public interface ISourceInjectedQueryable<out T> : IQueryable<T>, IAsyncEnumerable<T>
     {
         /// <summary>
         /// Called when [enumerated].

@@ -173,6 +173,20 @@ namespace AutoMapper
 
         public static bool IsQueryableType(this Type type)
            => typeof(IQueryable).IsAssignableFrom(type);
+        public static bool IsAsyncEnumerableType(this Type type)
+        {
+            if(!type.IsGenericType)
+            {
+                return false;
+            }
+            var genericTypeDefinition = type;
+            if(!type.IsGenericTypeDefinition)
+            {
+                genericTypeDefinition = type.GetGenericTypeDefinition();
+            }
+            return genericTypeDefinition == typeof(IAsyncEnumerable<>);
+        }
+            
 
         public static Type GetGenericElementType(this Type type)
             => type.HasElementType ? type.GetElementType() : type.GetTypeInfo().GenericTypeArguments[0];

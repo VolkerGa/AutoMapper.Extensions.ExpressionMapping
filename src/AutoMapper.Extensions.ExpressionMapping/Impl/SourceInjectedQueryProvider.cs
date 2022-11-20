@@ -1,6 +1,7 @@
 using AutoMapper.Internal;
 using AutoMapper.Mappers;
 using AutoMapper.QueryableExtensions.Impl;
+using Microsoft.EntityFrameworkCore.Query;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -8,6 +9,8 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace AutoMapper.Extensions.ExpressionMapping.Impl
 {
@@ -15,14 +18,14 @@ namespace AutoMapper.Extensions.ExpressionMapping.Impl
     using MemberPaths = IEnumerable<IEnumerable<MemberInfo>>;
     using ParameterBag = IDictionary<string, object>;
 
-    public class SourceInjectedQueryProvider<TSource, TDestination> : IQueryProvider
+    public class SourceInjectedQueryProvider<TSource, TDestination> : IQueryProvider, IAsyncQueryProvider
     {
         private readonly IMapper _mapper;
         private readonly IQueryable<TSource> _dataSource;
         private readonly IQueryable<TDestination> _destQuery;
         private readonly IEnumerable<ExpressionVisitor> _beforeVisitors;
         private readonly IEnumerable<ExpressionVisitor> _afterVisitors;
-        private readonly IDictionary<string, object> _parameters;
+        private readonly ParameterBag _parameters;
         private readonly MemberPaths _membersToExpand;
         private readonly Action<Exception> _exceptionHandler;
 
@@ -47,10 +50,10 @@ namespace AutoMapper.Extensions.ExpressionMapping.Impl
         public SourceInjectedQueryInspector Inspector { get; set; }
         internal Action<IEnumerable<object>> EnumerationHandler { get; set; }
 
-        public IQueryable CreateQuery(Expression expression) 
+        public IQueryable CreateQuery(Expression expression)
             => new SourceSourceInjectedQuery<TSource, TDestination>(this, expression, EnumerationHandler, _exceptionHandler);
 
-        public IQueryable<TElement> CreateQuery<TElement>(Expression expression) 
+        public IQueryable<TElement> CreateQuery<TElement>(Expression expression)
             => new SourceSourceInjectedQuery<TSource, TElement>(this, expression, EnumerationHandler, _exceptionHandler);
 
         public object Execute(Expression expression)
@@ -74,6 +77,10 @@ namespace AutoMapper.Extensions.ExpressionMapping.Impl
 
         public TResult Execute<TResult>(Expression expression)
         {
+            return Execute<TResult>(expression, typeof(TResult));
+        }
+        public TResult Execute<TResult>(Expression expression, Type syncResultType)
+        {
             try
             {
                 var resultType = typeof(TResult);
@@ -81,22 +88,22 @@ namespace AutoMapper.Extensions.ExpressionMapping.Impl
 
                 var sourceExpression = ConvertDestinationExpressionToSourceExpression(expression);
 
-                var destResultType = typeof(TResult);
+                var destResultType = syncResultType;
                 var sourceResultType = CreateSourceResultType(destResultType);
 
                 object destResult = null;
 
                 // case #1: query is a projection from complex Source to complex Destination
                 // example: users.UseAsDataSource().For<UserDto>().Where(x => x.Age > 20).ToList()
-                if (IsProjection<TDestination>(resultType))
+                if (IsProjection<TDestination>(resultType) || resultType.IsAsyncEnumerableType())
                 {
                     // in case of a projection, we need an IQueryable
                     var sourceResult = _dataSource.Provider.CreateQuery(sourceExpression);
                     Inspector.SourceResult(sourceExpression, sourceResult);
-                    
+
                     var queryExpressions = _mapper.ConfigurationProvider.Internal().ProjectionBuilder.GetProjection
                     (
-                        sourceResult.ElementType, 
+                        sourceResult.ElementType,
                         typeof(TDestination),
                         _parameters,
                         _membersToExpand.Select
@@ -184,8 +191,8 @@ namespace AutoMapper.Extensions.ExpressionMapping.Impl
 
                         var queryExpressions = _mapper.ConfigurationProvider.Internal().ProjectionBuilder.GetProjection
                         (
-                            sourceResultType, 
-                            destResultType, 
+                            sourceResultType,
+                            destResultType,
                             _parameters,
                             _membersToExpand.Select
                             (
@@ -215,12 +222,31 @@ namespace AutoMapper.Extensions.ExpressionMapping.Impl
                         expr = Call(null,
                             replacementMethod.MakeGenericMethod(destResultType), expr);
 
-                        destResult = _dataSource.Provider.Execute(expr);
+
+                        if(typeof(TResult) == syncResultType)
+                        {
+                            destResult = _dataSource.Provider.Execute(expr);
+                        }
+                        else
+                        {
+                            destResult = ((IAsyncQueryProvider)_dataSource.Provider).ExecuteAsync<TResult>(expr);
+                        }
                     }
                     // If there was no element operator that needed to be replaced by "where", just map the result
                     else
                     {
-                        var sourceResult = _dataSource.Provider.Execute(sourceExpression);
+                        object sourceResult;
+                        if (typeof(TResult) == syncResultType && !resultType.IsAsyncEnumerableType())
+                        {
+                            sourceResult = _dataSource.Provider.Execute(sourceExpression);
+                        }
+                        else
+                        {
+                            var executeAsyncMethod = typeof(IAsyncQueryProvider).GetMethod("ExecuteAsync").MakeGenericMethod(sourceResultType);
+                            //sourceResult = ((IAsyncQueryProvider)_dataSource.Provider).ExecuteAsync<TResult>(sourceExpression);
+                            sourceResult = executeAsyncMethod.Invoke((IAsyncQueryProvider)_dataSource.Provider,
+                                new object[] { sourceExpression, default(CancellationToken) });
+                        }
                         Inspector.SourceResult(sourceExpression, sourceResult);
                         destResult = _mapper.Map(sourceResult, sourceResultType, destResultType);
                     }
@@ -300,7 +326,7 @@ namespace AutoMapper.Extensions.ExpressionMapping.Impl
             return !searcher.ContainsElementOperator;
         }
 
-        private static bool IsProjection(Type resultType) 
+        private static bool IsProjection(Type resultType)
             => resultType.IsEnumerableType() && !resultType.IsQueryableType() && resultType != typeof(string);
 
         private static Type CreateSourceResultType(Type destResultType)
@@ -345,6 +371,23 @@ namespace AutoMapper.Extensions.ExpressionMapping.Impl
             Expression<Func<IQueryable<object>>> select = () => default(IQueryable<object>).Select(default(Expression<Func<object, object>>));
             var method = ((MethodCallExpression)select.Body).Method.GetGenericMethodDefinition();
             return method;
+        }
+
+        public TResult ExecuteAsync<TResult>(Expression expression, CancellationToken cancellationToken = default)
+        {
+            var resultType = typeof(TResult);
+            Type syncResultType;
+            if (resultType.IsGenericType)
+            {
+                var typeDefinition = resultType.IsGenericTypeDefinition ? resultType : resultType.GetGenericTypeDefinition();
+                syncResultType = typeDefinition == typeof(Task<>) ? resultType.GenericTypeArguments[0] : resultType;
+            }
+            else
+            {
+                syncResultType = resultType;
+            }
+            //object result = this.GetType().GetMethod("Execute", 1, new Type[] {typeof(Expression)}).MakeGenericMethod(syncResultType).Invoke(this, new object[]{ expression });
+            return Execute<TResult>(expression, syncResultType);
         }
     }
 

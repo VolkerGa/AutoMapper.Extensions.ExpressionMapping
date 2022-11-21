@@ -32,3 +32,13 @@ jobs:
         REPO_OWNER: ${{ github.repository_owner }}
       run: ./Pack_Push.ps1
       shell: pwsh
+
+    - name: Pack and push EFCore
+      env:
+        PROJECT_NAME: AutoMapper.Extensions.ExpressionMapping.EFCore
+        DEPLOY_PACKAGE_URL: https://api.nuget.org/v3/index.json
+        DEPLOY_PACKAGE_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        REPO: ${{ github.repository }}
+        REPO_OWNER: ${{ github.repository_owner }}
+      run: ./Pack_Push.ps1
+      shell: pwsh

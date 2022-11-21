@@ -22,20 +22,34 @@ namespace AutoMapper.Extensions.ExpressionMapping.Impl
                 Action<Exception> exceptionHandler,
                 IObjectDictionary parameters,
                 MemberPaths membersToExpand,
-                SourceInjectedQueryInspector inspector)
+                SourceInjectedQueryInspector inspector) : this(dataSource, destQuery, mapper, beforeVisitors, afterVisitors, exceptionHandler, parameters,
+                    membersToExpand, inspector, new SourceInjectedQueryProvider<TSource, TDestination>(mapper, dataSource, destQuery, beforeVisitors, afterVisitors, exceptionHandler, parameters, membersToExpand)
+                    {
+                        Inspector = inspector ?? new SourceInjectedQueryInspector()
+                    })
+        {
+        }
+
+        protected SourceSourceInjectedQuery(IQueryable<TSource> dataSource,
+                IQueryable<TDestination> destQuery,
+                IMapper mapper,
+                IEnumerable<ExpressionVisitor> beforeVisitors,
+                IEnumerable<ExpressionVisitor> afterVisitors,
+                Action<Exception> exceptionHandler,
+                IObjectDictionary parameters,
+                MemberPaths membersToExpand,
+                SourceInjectedQueryInspector inspector,
+                IQueryProvider provider)
         {
             Parameters = parameters;
             EnumerationHandler = (x => { });
             Expression = destQuery.Expression;
             ElementType = typeof(TDestination);
-            Provider = new SourceInjectedQueryProvider<TSource, TDestination>(mapper, dataSource, destQuery, beforeVisitors, afterVisitors, exceptionHandler, parameters, membersToExpand)
-            {
-                Inspector = inspector ?? new SourceInjectedQueryInspector()
-            };
+            Provider = provider;
             _exceptionHandler = exceptionHandler ?? (x => { });
         }
 
-        internal SourceSourceInjectedQuery(IQueryProvider provider, Expression expression, Action<IEnumerable<object>> enumerationHandler, Action<Exception> exceptionHandler)
+        protected internal SourceSourceInjectedQuery(IQueryProvider provider, Expression expression, Action<IEnumerable<object>> enumerationHandler, Action<Exception> exceptionHandler)
         {
             _exceptionHandler = exceptionHandler ?? (x => { });
             Provider = provider;
@@ -55,6 +69,7 @@ namespace AutoMapper.Extensions.ExpressionMapping.Impl
 
         internal Action<IEnumerable<object>> EnumerationHandler { get; set; }
         internal IObjectDictionary Parameters { get; set; }
+        protected Action<Exception> ExceptionHandler => _exceptionHandler;
 
         public IEnumerator<TDestination> GetEnumerator()
         {

@@ -37,3 +37,13 @@ jobs:
         REPO_OWNER: ${{ github.repository_owner }}
       run: ./Pack_Push.ps1
       shell: pwsh
+
+    - name: Pack and push EFCore
+      env:
+        PROJECT_NAME: AutoMapper.Extensions.ExpressionMapping.EFCore
+        DEPLOY_PACKAGE_URL: https://www.myget.org/F/automapperdev/api/v3/index.json
+        DEPLOY_PACKAGE_API_KEY: ${{ secrets.MYGET_CI_API_KEY }}
+        REPO: ${{ github.repository }}
+        REPO_OWNER: ${{ github.repository_owner }}
+      run: ./Pack_Push.ps1
+      shell: pwsh

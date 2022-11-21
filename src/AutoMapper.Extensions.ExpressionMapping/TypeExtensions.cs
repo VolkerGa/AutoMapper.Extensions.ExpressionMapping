@@ -180,6 +180,20 @@ namespace AutoMapper
         public static bool IsEnumerableType(this Type type) =>
             type.IsGenericType && typeof(System.Collections.IEnumerable).IsAssignableFrom(type);
 
+        public static bool IsAsyncEnumerableType(this Type type)
+        {
+            if (!type.IsGenericType)
+            {
+                return false;
+            }
+            var genericTypeDefinition = type;
+            if (!type.IsGenericTypeDefinition)
+            {
+                genericTypeDefinition = type.GetGenericTypeDefinition();
+            }
+            return genericTypeDefinition == typeof(IAsyncEnumerable<>);
+        }
+
         public static Type ReplaceItemType(this Type targetType, Type oldType, Type newType)
         {
             if (targetType == oldType)

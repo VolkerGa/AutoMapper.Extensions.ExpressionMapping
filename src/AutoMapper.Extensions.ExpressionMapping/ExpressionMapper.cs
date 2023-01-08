@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using AutoMapper.Execution;
 using AutoMapper.Extensions.ExpressionMapping;
 using AutoMapper.Internal;
 using AutoMapper.Internal.Mappers;
@@ -89,6 +90,19 @@ namespace AutoMapper.Mappers
                 var index2 = args.IndexOf(matchingEnumerableArgument);
                 return index2 < 0 ? t : arguments[index2].Type.GetTypeInfo().GenericTypeArguments[0];
             }
+
+            /*protected override Expression VisitUnary(UnaryExpression node)
+            {
+                return DoVisitUnary(Visit(node.Operand));
+
+                Expression DoVisitUnary(Expression updated)
+                {
+                    if (updated != node.Operand)
+                        return node.Update(updated);
+
+                    return node;
+                }
+            }*/
 
             protected override Expression VisitBinary(BinaryExpression node)
             {
@@ -217,8 +231,14 @@ namespace AutoMapper.Mappers
 
                 Func<Expression, MemberInfo, Expression> getExpression = MakeMemberAccess;
 
-                return propertyMap.SourceMembers
+                var newParameterGetter = propertyMap.SourceMembers
                     .Aggregate(replacedExpression, getExpression);
+                var paramaterMap = _configurationProvider.Internal().ResolveTypeMap(propertyMap.SourceType, propertyMap.DestinationType);
+                if(paramaterMap?.CustomMapExpression != null)
+                {
+                    return paramaterMap.CustomMapExpression.ReplaceParameters(newParameterGetter);
+                }
+                return newParameterGetter;
             }
 
             private class IsConstantExpressionVisitor : ExpressionVisitor

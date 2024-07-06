@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+	<AssemblyOriginatorKeyFile>..\..\AutoMapper.snk</AssemblyOriginatorKeyFile>
+	<SignAssembly>true</SignAssembly>
+	<PublicSign Condition=" '$(OS)' != 'Windows_NT' ">true</PublicSign>
+	<PackageId>AutoMapper.Extensions.ExpressionMapping.EFCore</PackageId>
+	<PackageIcon>icon.png</PackageIcon>
+	<PackageProjectUrl>http://automapper.org</PackageProjectUrl>
+	<PackageLicenseUrl>https://github.com/AutoMapper/AutoMapper.Extensions.ExpressionMapping/blob/master/LICENSE</PackageLicenseUrl>
+	<RepositoryType>git</RepositoryType>
+	<RepositoryUrl>https://github.com/AutoMapper/AutoMapper.Extensions.ExpressionMapping</RepositoryUrl>
+	<MinVerTagPrefix>v</MinVerTagPrefix>
+	<PublishRepositoryUrl>true</PublishRepositoryUrl>
+	<IncludeSymbols>true</IncludeSymbols>
+	<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+	<EmbedUntrackedSources>true</EmbedUntrackedSources>
+	<Deterministic>true</Deterministic>
+	<ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\icon.png" Link="icon.png">
+      <PackagePath></PackagePath>
+      <Pack>true</Pack>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="6.0.11" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="MinVer" Version="2.3.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AutoMapper.Extensions.ExpressionMapping\AutoMapper.Extensions.ExpressionMapping.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -61,6 +61,26 @@ namespace AutoMapper.Extensions.ExpressionMapping.Impl
         private IObjectDictionary _parameters;
         private SourceInjectedQueryInspector _inspector;
 
+        protected IQueryable<TSource> DataSource => _dataSource;
+
+        protected IMapper Mapper => _mapper;
+
+        protected IEnumerable<ExpressionVisitor> BeforeMappingVisitors => _beforeMappingVisitors;
+
+        protected IEnumerable<ExpressionVisitor> AfterMappingVisitors => _afterMappingVisitors;
+
+        protected ExpressionVisitor SourceExpressionTracer => _sourceExpressionTracer;
+
+        protected ExpressionVisitor DestinationExpressionTracer => _destinationExpressionTracer;
+
+        protected Action<Exception> ExceptionHandler => _exceptionHandler;
+
+        protected MemberPaths MembersToExpand => _membersToExpand;
+
+        protected IObjectDictionary Parameters => _parameters;
+
+        protected SourceInjectedQueryInspector Inspector => _inspector;
+
         public QueryDataSourceInjection(IQueryable<TSource> dataSource, IMapper mapper)
         {
             _dataSource = dataSource;
@@ -142,7 +162,7 @@ namespace AutoMapper.Extensions.ExpressionMapping.Impl
             return this;
         }
 
-        private ISourceInjectedQueryable<TDestination> CreateQueryable<TDestination>() =>
+        protected virtual ISourceInjectedQueryable<TDestination> CreateQueryable<TDestination>() =>
             new SourceSourceInjectedQuery<TSource, TDestination>(_dataSource,
                 new TDestination[0].AsQueryable(),
                 _mapper,

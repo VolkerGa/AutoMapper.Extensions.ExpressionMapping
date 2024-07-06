@@ -45,12 +45,14 @@ namespace AutoMapper.Extensions.ExpressionMapping.Impl
         }
 
         public SourceInjectedQueryInspector Inspector { get; set; }
-        internal Action<IEnumerable<object>> EnumerationHandler { get; set; }
+        protected internal Action<IEnumerable<object>> EnumerationHandler { get; set; }
+        protected IQueryProvider QueryProvider => _dataSource.Provider;
+        protected Action<Exception> ExceptionHandler => _exceptionHandler;
 
-        public IQueryable CreateQuery(Expression expression) 
+        public virtual IQueryable CreateQuery(Expression expression) 
             => new SourceSourceInjectedQuery<TSource, TDestination>(this, expression, EnumerationHandler, _exceptionHandler);
 
-        public IQueryable<TElement> CreateQuery<TElement>(Expression expression) 
+        public virtual IQueryable<TElement> CreateQuery<TElement>(Expression expression) 
             => new SourceSourceInjectedQuery<TSource, TElement>(this, expression, EnumerationHandler, _exceptionHandler);
 
         public object Execute(Expression expression)
@@ -74,6 +76,11 @@ namespace AutoMapper.Extensions.ExpressionMapping.Impl
 
         public TResult Execute<TResult>(Expression expression)
         {
+            return ExecuteCore<TResult>(expression, typeof(TResult), (Expression e, Type resultType) => _dataSource.Provider.Execute(e));
+        }
+
+        protected TResult ExecuteCore<TResult>(Expression expression, Type destResultType, Func<Expression, Type, object> execute)
+        {
             try
             {
                 var resultType = typeof(TResult);
@@ -81,7 +88,6 @@ namespace AutoMapper.Extensions.ExpressionMapping.Impl
 
                 var sourceExpression = ConvertDestinationExpressionToSourceExpression(expression);
 
-                var destResultType = typeof(TResult);
                 var sourceResultType = CreateSourceResultType(destResultType);
 
                 object destResult = null;
@@ -215,12 +221,12 @@ namespace AutoMapper.Extensions.ExpressionMapping.Impl
                         expr = Call(null,
                             replacementMethod.MakeGenericMethod(destResultType), expr);
 
-                        destResult = _dataSource.Provider.Execute(expr);
+                        destResult = execute(expr, typeof(TResult));
                     }
                     // If there was no element operator that needed to be replaced by "where", just map the result
                     else
                     {
-                        var sourceResult = _dataSource.Provider.Execute(sourceExpression);
+                        var sourceResult = execute(sourceExpression, sourceResultType);
                         Inspector.SourceResult(sourceExpression, sourceResult);
                         destResult = _mapper.Map(sourceResult, sourceResultType, destResultType);
                     }
@@ -301,7 +307,7 @@ namespace AutoMapper.Extensions.ExpressionMapping.Impl
         }
 
         private static bool IsProjection(Type resultType) 
-            => resultType.IsEnumerableType() && !resultType.IsQueryableType() && resultType != typeof(string);
+            => (resultType.IsEnumerableType() || resultType.IsAsyncEnumerableType()) && !resultType.IsQueryableType() && resultType != typeof(string);
 
         private static Type CreateSourceResultType(Type destResultType)
         {
